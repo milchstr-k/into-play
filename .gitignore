@@ -1,0 +1,16 @@
+node_modules/
+dist/
+output/
+artifacts/
+.playwright-cli/
+data/*.sqlite
+data/*.sqlite-*
+.DS_Store
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+
+# 本地环境变量与密钥（.env.example 仍可提交，仅作占位模板）
+.env
+.env.local
+.env.*.local
