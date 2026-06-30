@@ -159,8 +159,28 @@ function cleanUnitText(value, max = 120) {
 }
 
 function isStructuralLabel(value) {
+  if (/\p{Script=Han}/u.test(String(value || ""))) return false;
   const normalized = String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
   return !normalized || STRUCTURAL_LABELS.has(normalized);
+}
+
+function misconceptionChoiceFromFact(fact) {
+  const text = cleanUnitText(fact, 120);
+  const inversePatterns = [
+    [/不会要求([^，。；;,.]+)/u, (match) => `会要求${cleanUnitText(match[1], 30)}`],
+    [/不要([^，。；;,.]+)/u, (match) => `可以${cleanUnitText(match[1], 30)}，问题不大`],
+    [/不能([^，。；;,.]+)/u, (match) => `可以${cleanUnitText(match[1], 30)}，不会影响结果`],
+    [/必须([^，。；;,.]+)/u, (match) => `可以跳过${cleanUnitText(match[1], 30)}`],
+    [/先([^，。；;,.]+).*再([^，。；;,.]+)/u, (match) => `先${cleanUnitText(match[2], 24)}，再${cleanUnitText(match[1], 24)}`],
+    [/立即([^，。；;,.]+)/u, (match) => `等情况明朗后再${cleanUnitText(match[1], 30)}`],
+  ];
+
+  for (const [pattern, build] of inversePatterns) {
+    const match = text.match(pattern);
+    if (match) return build(match);
+  }
+
+  return "";
 }
 
 function extractKnowledgeUnits(content) {
@@ -222,7 +242,7 @@ function fallbackWrongChoices(unit, units) {
     .filter((item) => item !== unit)
     .map((item) => cleanUnitText(item.fact, 74))
     .filter(Boolean);
-  const wrongs = [...otherFacts];
+  const wrongs = [misconceptionChoiceFromFact(unit.fact), ...otherFacts].filter(Boolean);
   if (unit.kind === "definition") {
     wrongs.push(`把 ${unit.anchor} 理解成另一条资料概念`);
     wrongs.push(`${unit.anchor} 表示和原文相反的意思`);

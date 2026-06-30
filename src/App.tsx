@@ -108,11 +108,31 @@ const audioAssets: Partial<Record<FeedbackTone, string>> = {
 };
 
 const materialTypes: Array<{ id: MaterialType; label: string; sample: string }> = [
-  { id: "notes", label: "课程资料", sample: "课程资料：番茄工作法把任务拆成25分钟专注、5分钟休息；开始前写清目标，结束后记录干扰来源和下一步行动。" },
-  { id: "pdf", label: "PDF", sample: "章节资料：需求文档必须写清背景、目标、验收标准和风险升级路径。" },
-  { id: "slides", label: "课件", sample: "市场课件：定位、用户痛点、价值主张和转化路径必须逐层对应。" },
-  { id: "video", label: "字幕", sample: "视频字幕：睡眠改善需要固定时间、减少屏幕、建立放松仪式。" },
-  { id: "quiz", label: "题库", sample: "错题本：函数极值要先求导，再判断驻点和区间单调性。" },
+  {
+    id: "notes",
+    label: "逃生训练",
+    sample: "起火撤离：宿舍或教室起火时，先判断烟雾方向，低姿弯腰沿安全出口撤离。\n电梯误区：不要乘坐电梯，因为断电或烟囱效应会让电梯井聚烟。\n门把判断：门把手发烫时不要开门，应堵住门缝，到窗口发出求救信号。\n身上着火：不要奔跑，应就地打滚或用厚衣物覆盖灭火。\n湿毛巾作用：只能减少吸入烟尘，不能当作穿越浓烟的通行证。\n集合点规则：必须清点人数，不要返回火场拿物品。\n报警信息：拨打119时要说清地址、起火物、是否有人被困和联系电话。",
+  },
+  {
+    id: "pdf",
+    label: "反诈识别",
+    sample: "客服退款：冒充客服说退款或理赔时，先在官方App内核验订单，不要点击短信里的陌生链接。\n屏幕共享：任何人要求开启屏幕共享、远程控制或下载会议软件，都可能看到验证码和银行卡信息。\n安全账户：公安机关不会要求把钱转到安全账户，转账自证清白就是诈骗。\n验证码规则：验证码只用于本人确认操作，不能告诉客服、同学或群管理员。\n冻结威胁：遇到马上冻结账户这类威胁时，先挂断电话，通过官方客服电话或96110核实。\n下载风险：不要安装对方发来的非官方App，尤其是要求读取短信、通讯录或通知权限的应用。",
+  },
+  {
+    id: "slides",
+    label: "发布SOP",
+    sample: "发布边界：产品发布前必须写清目标用户、核心场景、成功指标和不做什么。\n灰度发布：先给低风险用户，观察崩溃率、转化率和投诉关键词。\n扩量判断：指标异常时先暂停扩量，不要为了赶进度继续放量。\n回滚开关：每个版本都要准备回滚开关，不能只依赖重新发版。\n客服口径：要说明变化、影响范围和用户下一步动作。\n复盘格式：比较预期指标和实际指标，记录一个保留动作、一个停止动作和一个下次实验。",
+  },
+  {
+    id: "video",
+    label: "AED急救",
+    sample: "现场安全：使用AED前先确认现场安全，再拍打双肩呼叫患者。\n启动救援：没有反应且呼吸异常时，立即让旁人拨打120并取AED。\n按压位置：胸外按压在两乳头连线中点，频率每分钟100到120次，深度约5到6厘米。\n贴片位置：AED贴片按图示贴在右上胸和左侧胸下。\n分析心律：机器分析心律时所有人不要触碰患者。\n电击操作：提示电击时确认无人接触再按下电击键。\n继续按压：电击后立刻继续胸外按压，不要停下来观察太久。",
+  },
+  {
+    id: "quiz",
+    label: "极值错题",
+    sample: "极值入口：函数极值不能只看导数等于0，驻点、不可导点和区间端点都要检查。\n一阶导判断：导数从正变负是极大值，从负变正是极小值。\n非极值情况：导数不变号通常不是极值，即使该点导数等于0。\n二阶导判断：二阶导大于0常用于判断极小值，小于0常用于判断极大值。\n二阶导失效：二阶导等于0时不能直接下结论，需要回到一阶导或函数值比较。\n闭区间最值：要把端点函数值和内部极值一起比较。",
+  },
 ];
 const gameModeIds = new Set<GameMode>(["cards", "lane", "survivor"]);
 const moodIds = new Set<Mood>(["tense", "calm", "playful"]);
@@ -309,8 +329,28 @@ function cleanLearningText(value: string | null | undefined, max = 120) {
 }
 
 function isStructuralLabel(value: string) {
+  if (/\p{Script=Han}/u.test(value)) return false;
   const normalized = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
   return !normalized || structuralLabels.has(normalized);
+}
+
+function misconceptionChoiceFromFact(fact: string) {
+  const text = cleanLearningText(fact, 120);
+  const inversePatterns: Array<[RegExp, (match: RegExpMatchArray) => string]> = [
+    [/不会要求([^，。；;,.]+)/u, (match) => `会要求${cleanLearningText(match[1], 30)}`],
+    [/不要([^，。；;,.]+)/u, (match) => `可以${cleanLearningText(match[1], 30)}，问题不大`],
+    [/不能([^，。；;,.]+)/u, (match) => `可以${cleanLearningText(match[1], 30)}，不会影响结果`],
+    [/必须([^，。；;,.]+)/u, (match) => `可以跳过${cleanLearningText(match[1], 30)}`],
+    [/先([^，。；;,.]+).*再([^，。；;,.]+)/u, (match) => `先${cleanLearningText(match[2], 24)}，再${cleanLearningText(match[1], 24)}`],
+    [/立即([^，。；;,.]+)/u, (match) => `等情况明朗后再${cleanLearningText(match[1], 30)}`],
+  ];
+
+  for (const [pattern, build] of inversePatterns) {
+    const match = text.match(pattern);
+    if (match) return build(match);
+  }
+
+  return "";
 }
 
 function extractKnowledgeUnits(content: string): KnowledgeUnit[] {
@@ -366,7 +406,7 @@ function unitWrongChoices(unit: KnowledgeUnit, units: KnowledgeUnit[]) {
     .filter((item) => item !== unit)
     .map((item) => cleanLearningText(item.fact, 74))
     .filter(Boolean);
-  const wrongs = [...otherFacts];
+  const wrongs = [misconceptionChoiceFromFact(unit.fact), ...otherFacts].filter(Boolean);
   if (unit.kind === "definition") {
     wrongs.push(`把 ${unit.anchor} 理解成另一条资料概念`);
     wrongs.push(`${unit.anchor} 表示和原文相反的意思`);
@@ -407,7 +447,7 @@ function extractContentFacts(content: string, keywords: string[]) {
   const rawFacts = normalized
     .split(/[。！？!?；;\n]+/u)
     .map((item) => item.replace(/^[^:：]{1,10}[:：]/, "").trim())
-    .map((item) => item.replace(/^(示例内容|章节资料|视频字幕|市场课件|错题本|课程资料)\s*[:：]?/, "").trim())
+    .map((item) => item.replace(/^(示例内容|章节资料|PDF资料|视频字幕|市场课件|错题本|课程资料|课件)\s*[:：]?/, "").trim())
     .filter((item) => item.length >= 5);
   const facts = Array.from(new Set(rawFacts)).slice(0, 12);
   if (facts.length >= 3) return facts;
