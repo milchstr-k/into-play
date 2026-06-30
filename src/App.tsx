@@ -117,6 +117,7 @@ const materialTypes: Array<{ id: MaterialType; label: string; sample: string }> 
 const gameModeIds = new Set<GameMode>(["cards", "lane", "survivor"]);
 const moodIds = new Set<Mood>(["tense", "calm", "playful"]);
 const maxContentChars = 12000;
+const modelGenerationTimeoutMs = 15000;
 const structuralLabels = new Set([
   "english",
   "meaning",
@@ -220,6 +221,32 @@ function trackSpotlight(event: PointerEvent<HTMLElement>) {
 
 function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(fallback);
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        resolve(fallback);
+      },
+    );
+  });
 }
 
 let audioContext: AudioContext | null = null;
@@ -800,7 +827,7 @@ async function requestModelPlaySpec(content: string, material: MaterialType, mod
     material,
     fileName,
     content: trimmed,
-  });
+  }, modelGenerationTimeoutMs);
   if (!parsed?.ok || !isRecord(parsed)) return null;
 
   // 模型可自由选 mode（除非用户在 Atlas 手动指定了骨架）。
@@ -3903,7 +3930,7 @@ function SurvivorStandby({ quest }: { quest: QuestGame }) {
       </div>
       <div className="survivor-standby-copy">
         <span>Memory Survivor</span>
-        <strong>12-wave roguelite run</strong>
+        <strong>12 波记忆幸存挑战</strong>
         <p>{compact(quest.spec.goal, 56)}</p>
       </div>
       <div className="survivor-standby-rules">
@@ -4294,7 +4321,12 @@ function QuestExperience() {
       await sleep(index === 0 ? 260 : 330);
     }
 
-    const modelResult = await requestModelPlaySpec(content, material, nextMode, fileName);
+    const modelResult = await withTimeout(
+      requestModelPlaySpec(content, material, nextMode, fileName),
+      modelGenerationTimeoutMs,
+      null,
+    );
+    if (tokenRef.current !== token) return;
     // 模型可能改选了更合适的骨架，以模型的最终 mode 为准（fallback 时仍用本地 nextMode）。
     const finalMode = modelResult ? modelResult.spec.skeleton : nextMode;
     if (modelResult && finalMode !== nextMode) setMode(finalMode);

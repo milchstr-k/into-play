@@ -10,6 +10,7 @@ const PORT = Number(process.env.AGENT_PORT || 8787);
 const HOST = process.env.AGENT_HOST || "0.0.0.0";
 const MAX_CONTENT_CHARS = 12000;
 const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
+const MODEL_REQUEST_TIMEOUT_MS = Number(process.env.MODEL_REQUEST_TIMEOUT_MS || 12000);
 const GAME_MODES = new Set(["cards", "lane", "survivor"]);
 const MOODS = new Set(["tense", "calm", "playful"]);
 const STRUCTURAL_LABELS = new Set([
@@ -70,7 +71,7 @@ function modelConfig() {
       provider: "anthropic",
       apiKey: anthropicKey,
       baseUrl: (process.env.ANTHROPIC_BASE_URL || process.env.LLM_BASE_URL || "https://api.anthropic.com").replace(/\/$/, ""),
-      model: process.env.ANTHROPIC_MODEL || process.env.LLM_MODEL || "Claude Sonnet 4.6",
+      model: process.env.ANTHROPIC_MODEL || process.env.LLM_MODEL || "DeepSeek-V4-Flash",
     };
   }
 
@@ -78,8 +79,26 @@ function modelConfig() {
     provider: "openai",
     apiKey: openAIKey,
     baseUrl: (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, ""),
-    model: process.env.OPENAI_MODEL || "gpt-5.4-mini",
+    model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
   };
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = MODEL_REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error.name === "AbortError") {
+      const timeoutError = new Error(`Model request timed out after ${timeoutMs}ms`);
+      timeoutError.status = 504;
+      timeoutError.code = "model_timeout";
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function json(res, status, payload) {
@@ -398,7 +417,7 @@ async function extractPptxText(buffer) {
 function buildPlaySpecPrompt(payload) {
   const knowledgeUnits = extractKnowledgeUnits(payload.content);
   const systemPrompt = [
-    "你是 IntoPlay 的学习游戏设计 Agent。",
+    "你是入境·GameCraft 的学习游戏设计 Agent。",
     "任务：先把用户资料抽成通用知识单元，再转成可立即运行的 PlaySpec JSON。",
     "必须输出严格 JSON，不要 Markdown，不要解释。",
     "schema:",
@@ -407,7 +426,7 @@ function buildPlaySpecPrompt(payload) {
     "禁止把字段名、栏目名、文件结构词当成知识点，例如 English、Meaning、Example、Content、Source、Prompt、Title、Question、Answer。",
     "规则：题目必须来自知识单元里的真实事实，不要使用通用套话；每题 3 个选项；answerIndex 指向正确选项；反馈要解释资料要点。",
     "题干要像用户真正会学习的题，不要出现“用户答错 X 时系统应该纠正什么”这类产品内测语气。",
-    "cards 输出 3 题：Scan/Break/Repair；lane/survivor 输出 12 题，适合循环答题得资源。",
+    "cards 输出 3 题：Scan/Break/Repair；lane/survivor 输出 6 题，运行时会循环成 12 波，不要为了凑数量写长句。",
     "如果用户指定 skeleton，必须使用指定 skeleton。",
   ].join("\n");
   const userPrompt = JSON.stringify({
@@ -415,7 +434,7 @@ function buildPlaySpecPrompt(payload) {
     material: payload.material,
     fileName: payload.fileName || "",
     knowledgeUnits,
-    content: clipMaterialText(payload.content),
+    content: clipMaterialText(payload.content, 2500),
   });
 
   return { systemPrompt, userPrompt };
@@ -445,7 +464,7 @@ async function callOpenAI(payload, config) {
   }
 
   async function postOpenAI(path, body) {
-    const response = await fetch(`${baseUrl}${path}`, {
+    const response = await fetchWithTimeout(`${baseUrl}${path}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -505,7 +524,7 @@ async function callAnthropic(payload, config) {
   }
 
   const { systemPrompt, userPrompt } = buildPlaySpecPrompt(payload);
-  const response = await fetch(`${config.baseUrl}/v1/messages`, {
+  const response = await fetchWithTimeout(`${config.baseUrl}/v1/messages`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -514,7 +533,7 @@ async function callAnthropic(payload, config) {
     },
     body: JSON.stringify({
       model: config.model,
-      max_tokens: 2200,
+      max_tokens: 1400,
       temperature: 0.45,
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
