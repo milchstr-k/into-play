@@ -961,6 +961,37 @@ function TemplatePreview({ mode, quest, activeMode }: { mode: GameMode; quest: Q
   );
 }
 
+function AtlasRouteStandby({ fileName, ready }: { fileName: string; ready: boolean }) {
+  return (
+    <div className="atlas-standby" aria-label="Route picker standby">
+      <div className="stage-copy template-intro">
+        <em>GameCraft Atlas</em>
+        <h2>选择玩法路线</h2>
+        <div className="stage-meta">
+          <span>{fileName ? compact(fileName, 18) : "资料已就绪"}</span>
+          <span>{ready ? "Ready" : "Waiting"}</span>
+        </div>
+      </div>
+
+      <div className="atlas-standby-orbit" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+        {gameModes.map((item, index) => (
+          <i key={item.id} style={{ "--a": `${index * 120 - 90}deg` } as CSSProperties}>
+            {item.short}
+          </i>
+        ))}
+      </div>
+
+      <div className="template-json-mini">
+        <Layers3 size={14} />
+        <code>route_picker</code>
+      </div>
+    </div>
+  );
+}
+
 function MisconceptionBossPlayable({
   quest,
   stage,
@@ -4222,6 +4253,7 @@ function QuestExperience() {
   const [material, setMaterial] = useState<MaterialType>("notes");
   const [mode, setMode] = useState<GameMode>("cards");
   const [atlasOpen, setAtlasOpen] = useState(false);
+  const [routePreviewArmed, setRoutePreviewArmed] = useState(false);
   const [content, setContent] = useState(materialTypes[0].sample);
   const [fileName, setFileName] = useState("");
   const [phase, setPhase] = useState<Phase>("input");
@@ -4270,6 +4302,7 @@ function QuestExperience() {
     setAgentStatus("local");
     setView("upload");
     setAtlasOpen(false);
+    setRoutePreviewArmed(false);
   }
 
   function selectMaterial(nextMaterial: MaterialType) {
@@ -4295,7 +4328,8 @@ function QuestExperience() {
     setSelectedChoice(null);
     setStageIndex(0);
     setView("games");
-    setAtlasOpen(true);
+    setAtlasOpen(false);
+    setRoutePreviewArmed(false);
     setAgentStatus("extracting");
     setIsBusy(true);
 
@@ -4396,6 +4430,7 @@ function QuestExperience() {
 
   function previewTemplate(nextMode: GameMode) {
     setMode(nextMode);
+    setRoutePreviewArmed(true);
     setAtlasOpen(true);
     setView("games");
   }
@@ -4404,6 +4439,7 @@ function QuestExperience() {
     tokenRef.current += 1;
     setIsBusy(false);
     setAtlasOpen(true);
+    setRoutePreviewArmed(true);
     setView("games");
     setPhase("input");
     setStepIndex(0);
@@ -4656,7 +4692,7 @@ function QuestExperience() {
 
                 <textarea value={content} onChange={onContentChange} spellCheck={false} aria-label="Learning material text" />
 
-                <motion.button className="next-button" type="button" onClick={() => { setAtlasOpen(false); setView("games"); }} disabled={!ready} whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }}>
+                <motion.button className="next-button" type="button" onClick={() => { setAtlasOpen(false); setRoutePreviewArmed(false); setView("games"); }} disabled={!ready} whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }}>
                   <Gamepad2 size={18} />
                   打开 GameCraft 玩法库
                 </motion.button>
@@ -4689,42 +4725,53 @@ function QuestExperience() {
                   <span />
                 </div>
 
-                <section className={`atlas-stage-panel accent-${activeMode.accent}`} aria-label="Template playable preview" onPointerMove={trackSpotlight}>
+                <section className={`atlas-stage-panel ${routePreviewArmed ? `accent-${activeMode.accent}` : "idle"}`} aria-label="Template playable preview" onPointerMove={trackSpotlight}>
                   <div className="stage-panel-top">
                     <span>
                       <ShieldCheck size={15} />
                       gamecraft.route
                     </span>
-                    <code>{modeRouteLabel.get(activeMode.id) ?? activeMode.label}</code>
+                    <code>{routePreviewArmed ? modeRouteLabel.get(activeMode.id) ?? activeMode.label : "选择玩法路线"}</code>
                   </div>
 
                   <div className="stage-playable">
-                    <TemplatePreview mode={mode} quest={atlasQuest} activeMode={activeMode} />
+                    {routePreviewArmed ? (
+                      <TemplatePreview mode={mode} quest={atlasQuest} activeMode={activeMode} />
+                    ) : (
+                      <AtlasRouteStandby fileName={fileName} ready={ready} />
+                    )}
                   </div>
 
                   <div className="atlas-actions">
-                    {atlasOpen ? (
-                      <button className="ghost-button" type="button" onClick={() => setAtlasOpen(false)}>
+                    {routePreviewArmed && atlasOpen ? (
+                      <button className="ghost-button" type="button" onClick={() => { setAtlasOpen(false); setRoutePreviewArmed(false); }}>
                         <ArrowLeft size={17} />
                         返回玩法库
                       </button>
                     ) : (
                       <span className="atlas-hint">
                         <Sparkles size={16} />
-                        选择节点预演
+                        选择节点
                       </span>
                     )}
-                    <motion.button className="next-button atlas-generate" type="button" onClick={() => void generate(true, mode)} disabled={!ready || isBusy} whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }}>
-                      <Code2 size={18} />
-                      用这个玩法生成我的内容
-                    </motion.button>
+                    {routePreviewArmed ? (
+                      <motion.button className="next-button atlas-generate" type="button" onClick={() => void generate(true, mode)} disabled={!ready || isBusy} whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }}>
+                        <Code2 size={18} />
+                        用这个玩法生成我的内容
+                      </motion.button>
+                    ) : (
+                      <button className="next-button atlas-generate" type="button" disabled>
+                        <Layers3 size={18} />
+                        选择玩法路线
+                      </button>
+                    )}
                   </div>
                 </section>
 
                 <div className="atlas-node-ring" aria-label="Template nodes">
                   {visibleGames.map((item, index) => (
                     <motion.button
-                      className={`atlas-node ${mode === item.id ? "selected" : ""} accent-${item.accent}`}
+                      className={`atlas-node ${routePreviewArmed && mode === item.id ? "selected" : ""} accent-${item.accent}`}
                       key={item.id}
                       style={{ "--angle": `${index * (360 / Math.max(visibleGames.length, 1)) - 90}deg` } as CSSProperties}
                       type="button"

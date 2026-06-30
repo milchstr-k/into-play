@@ -673,6 +673,100 @@ button:disabled {
   animation-direction: reverse;
 }
 
+.atlas-standby {
+  position: relative;
+  min-height: 340px;
+  padding: 16px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(99, 215, 255, 0.26), transparent 9rem),
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.025));
+  background-size: auto, 28px 28px, 28px 28px, auto;
+  border-radius: 18px;
+  isolation: isolate;
+}
+
+.atlas-standby::before,
+.atlas-standby::after {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: 310px;
+  aspect-ratio: 1;
+  pointer-events: none;
+  content: "";
+  border: 1px solid rgba(99, 215, 255, 0.34);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) rotateX(64deg);
+  animation: ring-spin 24s linear infinite;
+}
+
+.atlas-standby::after {
+  width: 430px;
+  border-color: rgba(157, 255, 106, 0.22);
+  animation-duration: 34s;
+  animation-direction: reverse;
+}
+
+.atlas-standby-orbit {
+  position: absolute;
+  inset: 42px;
+  z-index: 2;
+}
+
+.atlas-standby-orbit span {
+  position: absolute;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(99, 215, 255, 0.72), rgba(157, 255, 106, 0.58));
+  box-shadow: 0 0 28px rgba(99, 215, 255, 0.28);
+}
+
+.atlas-standby-orbit span:nth-child(1) {
+  left: 50%;
+  top: 52%;
+  width: 76px;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+}
+
+.atlas-standby-orbit span:nth-child(2) {
+  left: 16%;
+  top: 28%;
+  width: 86px;
+  height: 26px;
+  opacity: 0.46;
+  transform: rotate(-14deg);
+}
+
+.atlas-standby-orbit span:nth-child(3) {
+  right: 13%;
+  bottom: 24%;
+  width: 118px;
+  height: 28px;
+  opacity: 0.52;
+  transform: rotate(9deg);
+}
+
+.atlas-standby-orbit i {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  display: grid;
+  place-items: center;
+  width: 74px;
+  min-height: 30px;
+  color: #071124;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 950;
+  background: linear-gradient(135deg, #d9ff67, #63d7ff);
+  border-radius: var(--pill);
+  box-shadow: 0 12px 24px rgba(2, 8, 20, 0.28);
+  transform: translate(-50%, -50%) rotate(var(--a)) translateX(140px) rotate(calc(var(--a) * -1));
+}
+
 .template-intro {
   position: relative;
   z-index: 2;
